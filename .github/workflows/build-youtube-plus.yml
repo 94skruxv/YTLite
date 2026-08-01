@@ -30,6 +30,18 @@ on:
         required: true
         default: com.google.ios.youtube
         type: string
+      ipa_source:
+        description: Private source selector
+        required: true
+        default: armconverter
+        type: choice
+        options:
+          - armconverter
+          - temporary
+      original_sha256:
+        description: Expected source digest for temporary staging
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -53,6 +65,8 @@ jobs:
       BUNDLE_IDENTIFIER: ${{ inputs.bundle_identifier }}
       APPSTORE_ID: "544007664"
       ORIGINAL_BUNDLE_IDENTIFIER: com.google.ios.youtube
+      IPA_SOURCE: ${{ inputs.ipa_source }}
+      ORIGINAL_SHA256: ${{ inputs.original_sha256 }}
 
     steps:
       - name: Check out pinned workflow code
@@ -74,13 +88,36 @@ jobs:
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: work/youtube-original.ipa
-          key: youtube-original-${{ inputs.youtube_version }}
+          key: youtube-original-${{ inputs.youtube_version }}-${{ inputs.ipa_source == 'temporary' && inputs.original_sha256 || 'armconverter' }}
 
-      - name: Download exact decrypted YouTube IPA
-        if: steps.youtube-ipa-cache.outputs.cache-hit != 'true'
+      - name: Download cached IPA from temporary staging
+        id: youtube-ipa-staging
+        if: steps.youtube-ipa-cache.outputs.cache-hit != 'true' && inputs.ipa_source == 'temporary'
+        continue-on-error: true
+        env:
+          YOUTUBE_IPA_URL: ${{ secrets.YOUTUBE_IPA_URL }}
+        run: python3 scripts/ytplus-store/download-temporary.py
+
+      - name: Download exact decrypted YouTube IPA from ARMConverter
+        if: >-
+          steps.youtube-ipa-cache.outputs.cache-hit != 'true' &&
+          (inputs.ipa_source == 'armconverter' || steps.youtube-ipa-staging.outcome == 'failure')
         env:
           ARMCONVERTER_SESSION: ${{ secrets.ARMCONVERTER_SESSION }}
         run: scripts/ytplus-store/download-armconverter.sh
+
+      - name: Mark original IPA acquisition successful
+        if: steps.youtube-ipa-cache.outputs.cache-hit != 'true'
+        run: python3 scripts/ytplus-store/workflow_status.py success "original IPA acquired"
+
+      - name: Verify Pi original IPA digest
+        if: inputs.ipa_source == 'temporary'
+        run: |
+          actual_sha256="$(shasum -a 256 work/youtube-original.ipa | cut -d ' ' -f 1)"
+          if [[ "$actual_sha256" != "$ORIGINAL_SHA256" ]]; then
+            python3 scripts/ytplus-store/workflow_status.py validation_failed "original IPA digest does not match the Pi source"
+            exit 1
+          fi
 
       - name: Validate original YouTube IPA
         run: >-
@@ -96,7 +133,7 @@ jobs:
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: work/youtube-original.ipa
-          key: youtube-original-${{ inputs.youtube_version }}
+          key: youtube-original-${{ inputs.youtube_version }}-${{ inputs.ipa_source == 'temporary' && inputs.original_sha256 || 'armconverter' }}
 
       - name: Install pinned cyan
         run: |

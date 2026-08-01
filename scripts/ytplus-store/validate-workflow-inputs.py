@@ -15,6 +15,7 @@ from workflow_status import write_status
 VERSION = re.compile(r"^[0-9]+\.[0-9]+(?:\.[0-9]+)?$")
 BUILD_ID = re.compile(r"^ytp-[0-9]+\.[0-9]+(?:\.[0-9]+)?-yt-[0-9]+\.[0-9]+(?:\.[0-9]+)?$")
 BUNDLE_ID = re.compile(r"^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$")
+SHA256 = re.compile(r"^[a-f0-9]{64}$")
 
 
 def version_parts(value: str) -> tuple[int, int, int]:
@@ -50,6 +51,8 @@ def run() -> None:
     display_name = required_env("DISPLAY_NAME")
     bundle_id = required_env("BUNDLE_IDENTIFIER")
     run_number = required_env("GITHUB_RUN_NUMBER")
+    ipa_source = required_env("IPA_SOURCE")
+    original_sha256 = os.environ.get("ORIGINAL_SHA256", "").strip()
 
     version_parts(ytplus)
     version_parts(youtube)
@@ -63,6 +66,13 @@ def run() -> None:
         raise ValueError("invalid display name")
     if not run_number.isdecimal() or int(run_number) <= 0:
         raise ValueError("invalid GitHub run number")
+    if ipa_source not in ("armconverter", "temporary"):
+        raise ValueError("invalid IPA source")
+    if ipa_source == "temporary":
+        if not SHA256.fullmatch(original_sha256):
+            raise ValueError("temporary IPA source requires a SHA-256 digest")
+    elif original_sha256:
+        raise ValueError("ARMConverter source must not provide an original SHA-256")
 
     computed = store_version(youtube, ytplus)
     work = Path("work")
@@ -78,6 +88,8 @@ def run() -> None:
                 "bundle_identifier": bundle_id,
                 "store_version": computed,
                 "bundle_version": run_number,
+                "ipa_source": ipa_source,
+                "original_sha256": original_sha256,
             },
             sort_keys=True,
         )
