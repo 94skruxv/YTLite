@@ -15,8 +15,8 @@ from pathlib import Path
 from workflow_status import write_status
 
 MAX_IPA = 1024 * 1024 * 1024
-DOWNLOAD_HOST = "litter.catbox.moe"
-DOWNLOAD_PATH = re.compile(r"^/[A-Za-z0-9]{6,32}\.ipa$")
+DOWNLOAD_HOST = "temp.sh"
+DOWNLOAD_PATH = re.compile(r"^/[A-Za-z0-9]{5,64}/youtube\.ipa$")
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 
 
