@@ -1,0 +1,141 @@
+name: Build automated YouTube Plus IPA
+run-name: ${{ inputs.build_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: Immutable stable dayanch96/YTLite tag
+        required: true
+        type: string
+      ytplus_version:
+        description: Numeric YTPlus version
+        required: true
+        type: string
+      youtube_version:
+        description: Exact upstream-confirmed YouTube version
+        required: true
+        type: string
+      build_id:
+        description: Exact correlation ID
+        required: true
+        type: string
+      display_name:
+        description: Installed application name
+        required: true
+        default: YouTube Plus
+        type: string
+      bundle_identifier:
+        description: Installed application bundle identifier
+        required: true
+        default: com.google.ios.youtube
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: ytplus-${{ inputs.build_id }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build exact IPA
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      UPSTREAM_TAG: ${{ inputs.upstream_tag }}
+      YTPLUS_VERSION: ${{ inputs.ytplus_version }}
+      YOUTUBE_VERSION: ${{ inputs.youtube_version }}
+      BUILD_ID: ${{ inputs.build_id }}
+      DISPLAY_NAME: ${{ inputs.display_name }}
+      BUNDLE_IDENTIFIER: ${{ inputs.bundle_identifier }}
+      APPSTORE_ID: "544007664"
+      ORIGINAL_BUNDLE_IDENTIFIER: com.google.ios.youtube
+
+    steps:
+      - name: Check out pinned workflow code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Initialize build status
+        run: python3 scripts/ytplus-store/workflow_status.py success "build initialized"
+
+      - name: Validate dispatch inputs
+        run: python3 scripts/ytplus-store/validate-workflow-inputs.py
+
+      - name: Download immutable upstream assets
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/ytplus-store/download-upstream-assets.py
+
+      - name: Download exact decrypted YouTube IPA
+        env:
+          ARMCONVERTER_SESSION: ${{ secrets.ARMCONVERTER_SESSION }}
+        run: scripts/ytplus-store/download-armconverter.sh
+
+      - name: Validate original YouTube IPA
+        run: >-
+          python3 scripts/ytplus-store/inspect-ipa.py
+          --ipa work/youtube-original.ipa
+          --mode original
+          --output work/original-inspection.json
+          --expected-bundle "$ORIGINAL_BUNDLE_IDENTIFIER"
+          --expected-version "$YOUTUBE_VERSION"
+
+      - name: Install pinned cyan
+        run: |
+          if ! python3 -m pip install --disable-pip-version-check --no-input --force-reinstall \
+            "https://github.com/asdfzxcvbn/pyzule-rw/archive/740d3716dcd98c20c000f12cdb88f1f0b2a533a4.zip"; then
+            python3 scripts/ytplus-store/workflow_status.py build_failed "could not install pinned cyan"
+            exit 1
+          fi
+
+      - name: Inject YouTube Plus
+        run: |
+          store_version="$(python3 -c 'import json; print(json.load(open("work/inputs.json"))["store_version"])')"
+          if ! cyan \
+            -i work/youtube-original.ipa \
+            -o work/YouTubePlus.ipa \
+            -u -w -e \
+            -f work/ytplus.deb work/OpenYoutubeSafariExtension.appex \
+            -n "$DISPLAY_NAME" \
+            -b "$BUNDLE_IDENTIFIER" \
+            -v "$store_version" \
+            -l work/metadata.plist \
+            --overwrite; then
+            python3 scripts/ytplus-store/workflow_status.py build_failed "cyan failed to inject YTPlus"
+            exit 1
+          fi
+
+      - name: Validate final IPA
+        run: >-
+          python3 scripts/ytplus-store/inspect-ipa.py
+          --ipa work/YouTubePlus.ipa
+          --mode final
+          --output work/final-inspection.json
+          --expected-bundle "$BUNDLE_IDENTIFIER"
+          --expected-version "$(python3 -c 'import json; print(json.load(open("work/inputs.json"))["store_version"])')"
+          --expected-display-name "$DISPLAY_NAME"
+          --expected-youtube-version "$YOUTUBE_VERSION"
+          --expected-ytplus-version "$YTPLUS_VERSION"
+          --expected-build-id "$BUILD_ID"
+          --expected-bundle-version "$GITHUB_RUN_NUMBER"
+
+      - name: Package controller artifact
+        if: always()
+        run: python3 scripts/ytplus-store/package-result.py
+
+      - name: Validate controller artifact
+        if: always()
+        run: python3 scripts/ytplus-store/validate-result.py result
+
+      - name: Upload short-lived controller artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ytplus-result-${{ inputs.build_id }}
+          path: result/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
