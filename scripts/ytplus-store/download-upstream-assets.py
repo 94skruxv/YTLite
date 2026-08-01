@@ -22,6 +22,7 @@ MAX_JSON = 4 * 1024 * 1024
 MAX_DEB = 100 * 1024 * 1024
 MAX_EXTENSION_ARCHIVE = 100 * 1024 * 1024
 EXTENSION_COMMIT = "c87b5d5551b406477dca883158572f803251f52c"
+ARCHIVE_EXTENSION_NAME = "OpenYouTubeSafariExtension.appex"
 
 
 def api_json(path: str) -> dict:
@@ -67,7 +68,7 @@ def extract_extension(archive: Path, destination: Path) -> None:
         info_candidates = [
             member.filename
             for member in members
-            if member.filename.endswith("/OpenYoutubeSafariExtension.appex/Info.plist")
+            if member.filename.endswith(f"/{ARCHIVE_EXTENSION_NAME}/Info.plist")
         ]
         if len(info_candidates) != 1:
             raise RuntimeError("pinned extension archive does not contain one expected appex")
