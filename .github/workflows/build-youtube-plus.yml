@@ -69,7 +69,15 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 scripts/ytplus-store/download-upstream-assets.py
 
+      - name: Restore validated original IPA cache
+        id: youtube-ipa-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: work/youtube-original.ipa
+          key: youtube-original-${{ inputs.youtube_version }}
+
       - name: Download exact decrypted YouTube IPA
+        if: steps.youtube-ipa-cache.outputs.cache-hit != 'true'
         env:
           ARMCONVERTER_SESSION: ${{ secrets.ARMCONVERTER_SESSION }}
         run: scripts/ytplus-store/download-armconverter.sh
@@ -83,9 +91,17 @@ jobs:
           --expected-bundle "$ORIGINAL_BUNDLE_IDENTIFIER"
           --expected-version "$YOUTUBE_VERSION"
 
+      - name: Save validated original IPA cache
+        if: steps.youtube-ipa-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: work/youtube-original.ipa
+          key: youtube-original-${{ inputs.youtube_version }}
+
       - name: Install pinned cyan
         run: |
-          if ! python3 -m pip install --disable-pip-version-check --no-input --force-reinstall \
+          if ! python3 -m venv work/cyan-venv || \
+            ! work/cyan-venv/bin/python -m pip install --disable-pip-version-check --no-input \
             "https://github.com/asdfzxcvbn/pyzule-rw/archive/740d3716dcd98c20c000f12cdb88f1f0b2a533a4.zip"; then
             python3 scripts/ytplus-store/workflow_status.py build_failed "could not install pinned cyan"
             exit 1
@@ -94,7 +110,7 @@ jobs:
       - name: Inject YouTube Plus
         run: |
           store_version="$(python3 -c 'import json; print(json.load(open("work/inputs.json"))["store_version"])')"
-          if ! cyan \
+          if ! work/cyan-venv/bin/cyan \
             -i work/youtube-original.ipa \
             -o work/YouTubePlus.ipa \
             -u -w -e \

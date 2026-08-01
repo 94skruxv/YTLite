@@ -1,5 +1,6 @@
 # External build inputs. Update only after reviewing the referenced commit.
 actions/checkout d23441a48e516b6c34aea4fa41551a30e30af803
 actions/upload-artifact 043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+actions/cache 0057852bfaa89a56745cba8c7296529d2fc39830
 asdfzxcvbn/pyzule-rw 740d3716dcd98c20c000f12cdb88f1f0b2a533a4
 BillyCurtis/OpenYouTubeSafariExtension c87b5d5551b406477dca883158572f803251f52c
