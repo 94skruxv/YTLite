@@ -16,6 +16,10 @@ on:
         description: Exact upstream-confirmed YouTube version
         required: true
         type: string
+      store_version:
+        description: Monotonic SideStore-visible version selected by the Pi
+        required: true
+        type: string
       build_id:
         description: Exact correlation ID
         required: true
@@ -60,6 +64,7 @@ jobs:
       UPSTREAM_TAG: ${{ inputs.upstream_tag }}
       YTPLUS_VERSION: ${{ inputs.ytplus_version }}
       YOUTUBE_VERSION: ${{ inputs.youtube_version }}
+      STORE_VERSION: ${{ inputs.store_version }}
       BUILD_ID: ${{ inputs.build_id }}
       DISPLAY_NAME: ${{ inputs.display_name }}
       BUNDLE_IDENTIFIER: ${{ inputs.bundle_identifier }}

@@ -47,6 +47,7 @@ def run() -> None:
     upstream_tag = required_env("UPSTREAM_TAG")
     ytplus = required_env("YTPLUS_VERSION")
     youtube = required_env("YOUTUBE_VERSION")
+    requested_store_version = required_env("STORE_VERSION")
     build_id = required_env("BUILD_ID")
     display_name = required_env("DISPLAY_NAME")
     bundle_id = required_env("BUNDLE_IDENTIFIER")
@@ -56,6 +57,7 @@ def run() -> None:
 
     version_parts(ytplus)
     version_parts(youtube)
+    requested_store_parts = version_parts(requested_store_version)
     if upstream_tag not in (ytplus, f"v{ytplus}"):
         raise ValueError("upstream tag must exactly equal ytplus_version with an optional v prefix")
     if not BUILD_ID.fullmatch(build_id) or build_id != f"ytp-{ytplus}-yt-{youtube}":
@@ -75,6 +77,8 @@ def run() -> None:
         raise ValueError("ARMConverter source must not provide an original SHA-256")
 
     computed = store_version(youtube, ytplus)
+    if requested_store_parts < version_parts(computed):
+        raise ValueError("store version is older than the immutable input versions")
     work = Path("work")
     work.mkdir(exist_ok=True)
     (work / "inputs.json").write_text(
@@ -86,7 +90,7 @@ def run() -> None:
                 "build_id": build_id,
                 "display_name": display_name,
                 "bundle_identifier": bundle_id,
-                "store_version": computed,
+                "store_version": requested_store_version,
                 "bundle_version": run_number,
                 "ipa_source": ipa_source,
                 "original_sha256": original_sha256,
