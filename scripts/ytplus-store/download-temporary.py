@@ -46,7 +46,12 @@ def validated_url(value: str) -> str:
 
 
 def download(url: str, destination: Path, expected_sha256: str) -> None:
-    request = urllib.request.Request(url, headers={"User-Agent": "ytplus-store/1"})
+    request = urllib.request.Request(
+        url,
+        data=b"",
+        headers={"User-Agent": "ytplus-store/1"},
+        method="POST",
+    )
     opener = urllib.request.build_opener(NoRedirect())
     temporary = destination.with_suffix(".download")
     digest = hashlib.sha256()
