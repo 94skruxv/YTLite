@@ -28,8 +28,11 @@ def main() -> None:
     manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
     if manifest != result:
         raise SystemExit("manifest.json and result.json differ")
+    build_id = manifest.get("build_id", "")
     filename = manifest.get("ipa_filename", "")
-    if not re.fullmatch(r"YouTubePlus_YTP-[0-9.]+_YT-[0-9.]+\.ipa", filename):
+    if not re.fullmatch(r"ytp-[0-9.]+-yt-[0-9.]+-r[0-9]+", build_id):
+        raise SystemExit("manifest build ID is unsafe")
+    if filename != f"YouTubePlus_{build_id}.ipa":
         raise SystemExit("manifest IPA filename is unsafe")
     ipa = root / filename
     if ipa.stat().st_size != manifest.get("size"):
