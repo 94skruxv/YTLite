@@ -201,6 +201,7 @@ def inspect(args: argparse.Namespace) -> dict:
             finally:
                 executable_temp.unlink(missing_ok=True)
             result["original_youtube_version"] = version
+            result["original_bundle_version"] = plist_string(info, "CFBundleVersion")
             result["arm64_ios_executable"] = True
             return result
 

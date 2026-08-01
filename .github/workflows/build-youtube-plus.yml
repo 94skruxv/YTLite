@@ -17,7 +17,7 @@ on:
         required: true
         type: string
       store_version:
-        description: Monotonic SideStore-visible version selected by the Pi
+        description: Exact YouTube app version preserved in the IPA and SideStore source
         required: true
         type: string
       build_id:
@@ -151,7 +151,6 @@ jobs:
 
       - name: Inject YouTube Plus
         run: |
-          store_version="$(python3 -c 'import json; print(json.load(open("work/inputs.json"))["store_version"])')"
           if ! work/cyan-venv/bin/cyan \
             -i work/youtube-original.ipa \
             -o work/YouTubePlus.ipa \
@@ -159,7 +158,6 @@ jobs:
             -f work/ytplus.deb work/OpenYoutubeSafariExtension.appex \
             -n "$DISPLAY_NAME" \
             -b "$BUNDLE_IDENTIFIER" \
-            -v "$store_version" \
             -l work/metadata.plist \
             --overwrite; then
             python3 scripts/ytplus-store/workflow_status.py build_failed "cyan failed to inject YTPlus"
@@ -178,7 +176,7 @@ jobs:
           --expected-youtube-version "$YOUTUBE_VERSION"
           --expected-ytplus-version "$YTPLUS_VERSION"
           --expected-build-id "$BUILD_ID"
-          --expected-bundle-version "$GITHUB_RUN_NUMBER"
+          --expected-bundle-version "$(python3 -c 'import json; print(json.load(open("work/original-inspection.json"))["original_bundle_version"])')"
 
       - name: Package controller artifact
         if: always()

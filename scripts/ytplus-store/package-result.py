@@ -55,7 +55,7 @@ def package() -> None:
         raise ValueError("successful workflow has no final IPA")
     if not original_source.is_file():
         raise ValueError("successful workflow has no original IPA")
-    filename = f"YouTubePlus_YTP-{inputs['ytplus_version']}_YT-{inputs['youtube_version']}.ipa"
+    filename = f"YouTubePlus_{inputs['build_id']}.ipa"
     destination = result_dir / filename
     shutil.copyfile(source, destination)
     digest = sha256(destination)
@@ -72,7 +72,7 @@ def package() -> None:
         "ytplus_version": inputs["ytplus_version"],
         "youtube_version": inputs["youtube_version"],
         "store_version": inputs["store_version"],
-        "bundle_version": inputs["bundle_version"],
+        "bundle_version": inspection["bundle_version"],
         "bundle_identifier": inspection["bundle_identifier"],
         "display_name": inspection["display_name"],
         "ipa_filename": filename,
